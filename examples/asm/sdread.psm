@@ -1,0 +1,383 @@
+;-------------------------------------------------------------------------------
+; Copyright 2014 Paulino Ruiz de Clavijo Vázquez <paulino@dte.us.es>
+; This file is part of the Digilentinc-peripherals project.
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+; 
+; http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.  
+;
+; You can get more info at http://www.dte.us.es/id2
+;--*------------------------------ End auto header, don't touch this line --*--
+
+
+; SDHC-CARD in SPI mode reader
+;
+;  Only valid for SDHC cards type
+;  It is not a good idea read SD cards with picoblaze.
+;
+; This program do:
+;   1.Init card 
+;   2.Read block 0 of SDHC card and put byte by byte on display
+; Button is required in each step, error code is showed in MSB display
+;
+; MSB display shows the status:
+;  00 = no error
+;  EF = Timeout Error
+;  E0 = CMD0 error
+;  E1 = CMD1 error
+;  E2 = cmd55 error
+;  E4 = cmd41 fail
+;  E8 = CMD8 error
+;  E7 = CMD17 error (read block)
+
+
+; Basys2 peripherals
+CONSTANT PORT_LEDS,     04 ; out port  
+CONSTANT PORT_DISP_LSB, 08 ; out port  
+CONSTANT PORT_DISP_MSB, 10 ; out port
+CONSTANT PORT_BUTTONS,  03 ; in port
+CONSTANT PORT_SWITCHES, 00 ; in port
+
+; SPI
+CONSTANT PORT_SPICONF,  01  ; io_port: in read status reg, out writes config register
+CONSTANT PORT_SPIDATA,  02  ; io_port: in read incoming data, out send byte
+
+; Basys2 peripherals
+
+
+CONSTANT DELAY, A0
+
+
+; Vars
+NAMEREG s0, r_leds
+NAMEREG s1, r_tmp1
+NAMEREG s2, r_tmp2
+NAMEREG s3, r_tmp3
+NAMEREG s4, r_cont_main
+NAMEREG s6, r_spiiobyte
+NAMEREG s7, r_retval  ; routines return value, 0 == success
+NAMEREG s8, r_delay   ; used for delay routine
+NAMEREG s9, r_contto   ; used in timeout (wait_sd_res routine)
+   
+init_prog: ; wait some button to start
+  load    r_leds,01
+  load    r_tmp1,FF
+  output  r_tmp1,PORT_LEDS
+  
+  call    wait_button
+  load    r_tmp1,00     ; Clear display
+  output  r_tmp1,PORT_DISP_LSB
+  output  r_tmp1,PORT_DISP_MSB 
+  
+  call    sd_cmd0
+  compare r_retval,00 ; Init ok  and CMD0 ok
+  jump    nz,error   
+  call    wait_button  
+  
+  call    sd_cmd8
+  compare r_retval,00 ; OK   
+  jump    nz,error
+  
+  
+init_again:
+  call    wait_button
+  call    sd_cmd55
+  call    sd_acmd41  
+  compare r_retval,00 ; Init OK   
+  jump    z,read_block
+  compare r_retval,01 ; Idle try again
+  jump    z,init_again
+  
+read_block:
+  call    sd_cmd17  ; READ 512 bytes
+  compare r_retval,00 ; OK   
+  jump    nz,error
+  jump    init_prog  
+  
+
+
+wait_button:
+  input   r_tmp1,PORT_BUTTONS
+  compare r_tmp1,00
+  jump    z,wait_button
+  load    r_tmp1,00
+  output  r_tmp1,PORT_LEDS  
+wait_button_up:  
+  input   r_tmp1,PORT_BUTTONS
+  compare r_tmp1,00
+  jump    nz,wait_button_up
+  rr      r_leds
+  output  r_leds,PORT_LEDS
+  return
+
+
+;delay time
+delay_ms:
+  LOAD r_tmp1,00
+  LOAD r_tmp2,00 
+  LOAD r_tmp3,00
+delay_loop:
+  ADD   r_tmp1,01
+  ADDCY r_tmp2,00
+  ADDCY r_tmp3,00
+  compare r_tmp3,r_delay
+  jump  nz,delay_loop
+  return  
+  
+
+error: ; Display MSB=Error code, Display LSB=SD_CMD Response
+  output  r_spiiobyte,PORT_DISP_LSB
+  output  r_retval,PORT_DISP_MSB ; r_retval containts error code
+  jump    init_prog
+
+  
+
+; SPI send/recieve byte routine
+spi_sr:
+  output r_spiiobyte, PORT_SPIDATA  
+spi_wait_0:
+  input  r_spiiobyte, PORT_SPICONF 
+  test   r_spiiobyte, 40      ; Check for data ready flag
+  jump   z,spi_wait_0
+  input  r_spiiobyte, PORT_SPIDATA
+  return
+
+
+; SD Routines: 
+; - assert/deassert CS: 
+; - sd_wait_res:  loop while response FF
+
+; Issues: Before send data, send at least 8 extra cycles, while the byte received is not FF continue sending FF
+wait_sd_ready:
+  load    r_spiiobyte,ff
+  call    spi_sr
+  compare r_spiiobyte,ff
+  jump    nz,wait_sd_ready
+  return
+
+
+; Wait response routine (sending 0xff)
+; returned value in r_spiiobyte, on timeout return 0xff
+sd_assert_cs:
+  load    r_spiiobyte, ff
+  call    spi_sr
+  load    r_tmp1,04 ; assert CS
+  output  r_tmp1,PORT_SPICONF
+  load    r_spiiobyte, ff 
+  call    spi_sr  
+  return
+
+sd_deassert_cs:
+  load   r_tmp1,84 ; deassert CS
+  output r_tmp1,PORT_SPICONF  
+  return 
+
+sd_wait_res:
+  load    r_contto,ff
+sd_wait_loop:
+  load    r_spiiobyte,ff
+  sub     r_contto,01
+  return  z ; time out
+  call    spi_sr
+  compare r_spiiobyte,ff
+  jump    z,sd_wait_loop
+  return
+
+
+; CMD0, r_retval==0 on success, on fail err_code
+sd_cmd0:
+  ; 80 sclk at 400khz cycles with SS => '1' 
+  load    r_retval,00   ; default return value
+  load    r_tmp1,84     ; up SS and set clock to 400Khz
+  output  r_tmp1,PORT_SPICONF
+  load    r_cont_main,80
+sd_loop1:              ; At least 80 dummy clock cycles
+  load    r_spiiobyte,ff
+  call    spi_sr
+  sub     r_cont_main,01
+  jump    nz,sd_loop1  
+  
+  ; SS => '0' and send CMD0  
+  load   r_tmp1,04 ; down SS, assert SS and set clock to 400Khz, set SPI mode
+  output r_tmp1,PORT_SPICONF
+  load    r_spiiobyte,ff ; 8 extra cycles
+  call    spi_sr
+  load    r_spiiobyte,ff ; 8 extra cycles
+  call    spi_sr
+  load   r_spiiobyte, 40  ; Send CMD0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 95  ; Send CRC 0x95
+  call   spi_sr
+
+  call    sd_wait_res ; Wait response
+  
+  load   r_tmp1,84          ; deassert CS/
+  output r_tmp1,PORT_SPICONF
+  
+  compare r_spiiobyte,ff  ; Check response
+  jump    z,sd_init_to ; timeout
+  compare r_spiiobyte,01
+  return  z
+  load    r_retval,E0 ; Error 1, response type R1 != 0x01
+  return
+sd_init_to:
+  load   r_retval,EF ; Error 0, timeout
+  return
+
+  
+sd_cmd1: ; CMD1=0x4100000000FF checksum is not required
+  call    sd_assert_cs
+  load    r_spiiobyte, 41  ; Send 40 | 01
+  call    spi_sr
+  load    r_spiiobyte, 00  ; Send 0x0
+  call    spi_sr
+  load    r_spiiobyte, 00  ; Send 0x0
+  call    spi_sr
+  load    r_spiiobyte, 00  ; Send 0x0
+  call    spi_sr  
+  load    r_spiiobyte, 00  ; Send 0x0
+  call    spi_sr  
+  load    r_spiiobyte, FF  ; Send CRC not required for cmd1  
+  call    spi_sr  
+  
+  call    sd_wait_res
+  call    sd_deassert_cs
+  compare r_spiiobyte,01  ; the SD still IDLE, ... try again
+  jump    z,sd_cmd1  
+  load    r_retval,00
+  compare r_spiiobyte,00  ; espected response
+  return  z
+  load    r_retval,E1
+  return
+
+  
+sd_cmd8: ;send CMD8=0x48000001AA87
+  call   sd_assert_cs
+  load   r_spiiobyte, 48  ; Send 0b 01 001000
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 01  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, AA  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 87  ; Send CRC
+  call   spi_sr    
+  call   sd_wait_res  
+  call   sd_deassert_cs
+  load   r_retval,00
+  compare r_spiiobyte,01  ; espected response
+  return z
+  load   r_retval,E8
+  return 
+
+sd_cmd55: ; send command CMD55, not check res
+  call   sd_assert_cs
+  load   r_spiiobyte, 77  ; Send CMD55 (0x77)
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send CRC, but is ignored
+  call   spi_sr
+  call   sd_wait_res      ; Wait R1 response
+  call   sd_deassert_cs
+  return 
+
+;0x4140000000XX (40 => HCS=1 only SDHC)
+; Return 0x00 if card has end init or 01 if it is idle
+sd_acmd41: ; send command ACMD41, response expected R1:0x00 (Idle bit is cleared), set HCS=1
+  call   sd_assert_cs
+  load   r_spiiobyte, 69  ; Send ACMD 41 (0x69)
+  call   spi_sr
+  load   r_spiiobyte, 40  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send CRC, but is ignored
+  call   spi_sr
+  call   sd_wait_res     
+  call   sd_deassert_cs
+  load    r_retval,00
+  compare r_spiiobyte,00  ; OK , idle bit cleared
+  return  z
+  load    r_retval,01
+  compare r_spiiobyte,01  ; Idle, init not end
+  return  z
+  load    r_retval,E4 ; CMD41 fail ; otherwise error
+  return 
+
+  
+sd_cmd17: ; Read single block and wait for token 0xfe (block 00)
+  call   sd_assert_cs
+  load   r_spiiobyte, 51  ; Send CMD17 = 0b 01 010001 = 0x51
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send CRC, but is ignored
+  call   spi_sr
+  call   sd_wait_res 
+  
+  compare r_spiiobyte,00  ; Ok
+  jump    z,sd_cmd17_data
+  load    r_retval,E7 
+  return  
+  
+sd_cmd17_data: 
+  load    r_spiiobyte, 00 ; recieve byte while send 0x00
+  call    spi_sr
+  compare r_spiiobyte,fe  ; wait Start token
+  jump    nz,sd_cmd17_data
+  
+  load    r_tmp2,00
+  
+sd_cmd17_byte: 
+  output  r_tmp2,PORT_DISP_MSB
+  add     r_tmp2,01
+  load    r_spiiobyte, 00 ; recieve byte while send 0x00
+  call    spi_sr
+  output  r_spiiobyte,PORT_DISP_LSB  
+  call    wait_button
+  compare r_tmp2,00
+  jump    nz,sd_cmd17_byte
+  call    sd_deassert_cs
+  load    r_retval,00
+  return 
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+

@@ -1,0 +1,65 @@
+;-------------------------------------------------------------------------------
+; Copyright 2014 Paulino Ruiz de Clavijo Vázquez <paulino@dte.us.es>
+; This file is part of the Digilentinc-peripherals project.
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+; 
+; http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.  
+;
+; You can get more info at http://www.dte.us.es/id2
+;--*------------------------------ End auto header, don't touch this line --*--
+
+; 
+; Outport demo: display and leds
+; This program shows simple counter in an infinite loop
+
+; Basys2 peripherals
+
+CONSTANT PORT_LEDS,     04
+CONSTANT PORT_DISP_LSB, 08
+CONSTANT PORT_DISP_MSB, 10
+
+CONSTANT DELAY_LIMIT,   A0
+
+; Vars
+NAMEREG s0, r_tmp1
+NAMEREG s1, r_tmp2
+NAMEREG s2, r_tmp3
+NAMEREG s3, r_counter_h
+NAMEREG s4, r_counter_l
+NAMEREG s5, r_leds
+
+  load   r_counter_h,12
+  load   r_counter_l,34
+  load   r_leds,AA
+
+main_loop:
+  output r_leds,PORT_LEDS
+  output r_counter_h,PORT_DISP_MSB
+  output r_counter_l,PORT_DISP_LSB
+  call   delay
+  xor	   r_leds,FF        ; invert leds
+  add    r_counter_l,01   ; increment display counter
+  addcy  r_counter_h,00
+  jump   main_loop
+  
+;delay some time routine
+
+delay:
+  load  r_tmp1, 00
+  load  r_tmp2, 00 
+  load  r_tmp3, 00
+delay_loop:
+  add   r_tmp1,01
+  addcy r_tmp2,00
+  addcy r_tmp3,00
+  compare r_tmp3,DELAY_LIMIT
+  jump  nz,delay_loop
+  return

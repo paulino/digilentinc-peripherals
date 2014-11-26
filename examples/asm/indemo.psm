@@ -1,0 +1,75 @@
+;-------------------------------------------------------------------------------
+; Copyright 2014 Paulino Ruiz de Clavijo Vázquez <paulino@dte.us.es>
+; This file is part of the Digilentinc-peripherals project.
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+; 
+; http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.  
+;
+; You can get more info at http://www.dte.us.es/id2
+;--*------------------------------ End auto header, don't touch this line --*--
+
+; Basys2 peripheral Demo
+; Test input ports: switches and buttons. 
+; The switches values are copied to the leds. 
+; The number of the button pressed is displayed into LSB digit
+
+; Basys2 peripherals connected
+
+CONSTANT PORT_LEDS,     04 ; out port  
+CONSTANT PORT_DISP_LSB, 08 ; out port  
+CONSTANT PORT_DISP_MSB, 10 ; out port
+CONSTANT PORT_BUTTONS,  03 ; in port
+CONSTANT PORT_SWITCHES, 00 ; in port
+
+; Vars
+NAMEREG s0, r_tmp
+NAMEREG s1, r_dh   ; display msb
+NAMEREG s2, r_dl   ; display lsb
+
+  
+  LOAD   r_dh,12
+  LOAD   r_dl,34
+
+main_loop: 	
+  input   r_tmp,PORT_SWITCHES   ; read switches
+  
+  output  r_tmp,PORT_LEDS       ; put siwtches on leds
+  
+  output  r_dh,PORT_DISP_MSB
+  output  r_dl,PORT_DISP_LSB  
+  
+  input   r_tmp,PORT_BUTTONS
+  test    r_tmp,01              ; test button 0
+  call    nz,button_0
+  test    r_tmp,02              ; test button 1
+  call    nz,button_1
+  test    r_tmp,04              ; test button 2
+  call    nz,button_2
+  test    r_tmp,08              ; test button 3
+  call    nz,button_3
+  jump    main_loop
+  
+button_0:
+  load   r_dh,FF
+  load   r_dl,00
+  return 
+button_1:
+  load   r_dh,FF
+  load   r_dl,11
+  return 
+button_2:
+  load   r_dh,FF
+  load   r_dl,22
+  return 
+button_3:
+  load   r_dh,FF
+  load   r_dl,33
+  return 

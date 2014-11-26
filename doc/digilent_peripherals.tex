@@ -1,0 +1,132 @@
+\documentclass[10pt,a4paper,onecolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{multicol}
+
+\begin{document}
+
+\title{Set of peripherals for Digilent Inc. boards}
+
+\author{P. Ruiz-de-Clavijo V\'azquez}
+\date{October 15, 2012}
+
+\maketitle
+
+
+\section*{Overview}
+
+This document only describes the modules operation for the components included 
+in this project. You can get more information in the README.md files 
+available in some directories.
+
+The components are common designs to use with the peripherals included in low 
+range Digilent boards like Basys and Nesys. 
+The modules interface is ready to be easily connected as  peripheral to 
+microcontrollers. For this purpose has been added to the project some examples 
+of use with the Picoblaze microcontroller.
+
+The components definitions in package \emph{digilent\_peripherals\_pk} are the following:
+
+\begin{itemize}
+\item Inputs buttons synchronizer
+\item Switchs controller
+\item Display controller
+\item Leds out controller
+\end{itemize}
+
+\section*{Functional description}
+
+All peripherals are very similar and easy to use. Each peripheral contains an internal register to store the input or output data and a signal enable ready to be used as the peripheral selection signal. The figures and the tables details the signal and its behavior.
+
+For more info about how to use it, you can see the examples included with this mini-project.
+\begin{center}
+
+  \includegraphics{figure-buttons-controller.eps}
+  \captionof{figure}{Buttons controller}
+  \label{fig:unitbuttons}
+  
+  \includegraphics[]{figure-leds-controller.eps}
+  \captionof{figure}{Leds controller}
+  \label{fig:unit-leds}
+
+  \includegraphics[]{figure-display-controller.eps}
+  \captionof{figure}{Display controller}
+  \label{fig:unit-display}
+  
+  \includegraphics[]{figure-switches-controller.eps}
+  \captionof{figure}{Switches controller}
+  \label{fig:unit-switches}
+
+
+\centering
+\begin{tabular}{|c|c|c|}
+\hline 
+enable & r & Operation \\ 
+\hline 
+\hline 
+0 & - & - \\ 
+\hline 
+1 & 1  & internal\_reg[7:0] ${\leftarrow}$ "0000" \& digit\_in[3:0] \\
+\hline 
+\end{tabular}
+\captionof{table}{Buttons controller signals behavior}
+
+\centering
+\begin{tabular}{|c|c|c|}
+\hline 
+enable & r & Operation \\ 
+\hline 
+\hline 
+0 & - & - \\ 
+\hline 
+1 & 1  & internal\_reg ${\leftarrow}$ port\_in \\
+\hline 
+\end{tabular}
+\caption{Leds controller signals behavior}
+
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline 
+enable & w\_msb & w\_lsb & Operation \\ 
+\hline 
+\hline 
+0 & - & - & - \\ 
+\hline 
+1 & 0 & 1 & lsb\_reg ${\leftarrow}$ digit\_in \\ 
+\hline 
+1 & 1 & 0 & msb\_reg ${\leftarrow}$ digit\_in \\ 
+\hline 
+\end{tabular}
+\caption{Display controller signals behavior}
+
+
+
+
+\centering
+\begin{tabular}{|c|c|c|}
+\hline 
+enable & r & Operation \\ 
+\hline 
+\hline 
+0 & - & - \\ 
+\hline 
+1 & 1  & internal\_reg ${\leftarrow}$ switches\_in \\
+\hline 
+\end{tabular}
+\caption{Switches controller signals behavior}
+
+
+\end{center}
+
+\section*{About Picoblaze peripheral examples}
+
+See README.md file included in \emph{examples} directory 
+
+\end{document}

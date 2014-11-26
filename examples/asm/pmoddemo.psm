@@ -1,0 +1,155 @@
+;-------------------------------------------------------------------------------
+; Copyright 2014 Paulino Ruiz de Clavijo Vázquez <paulino@dte.us.es>
+; This file is part of the Digilentinc-peripherals project.
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+; 
+; http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.  
+;
+; You can get more info at http://www.dte.us.es/id2
+;--*------------------------------ End auto header, don't touch this line --*--
+
+; SDHC-CARD in SPI mode initialization
+;  SPI Demo using PMOD and SDCARD, code not fully tested.
+;  Only valid for SDHC cards type
+;  It is not a good idea read SD cards with picoblaze.
+
+; Basys2 peripherals
+CONSTANT PORT_LEDS,     04 ; out port  
+CONSTANT PORT_DISP_LSB, 08 ; out port  
+CONSTANT PORT_DISP_MSB, 10 ; out port
+CONSTANT PORT_BUTTONS,  03 ; in port
+CONSTANT PORT_SWITCHES, 00 ; in port
+
+; SPI
+CONSTANT PORT_SPICONF,  01  ; io_port: in read status reg, out writes config register
+CONSTANT PORT_SPIDATA,  02  ; io_port: in read incoming data, out send byte
+
+; Basys2 peripherals
+
+
+CONSTANT DELAY, A0
+
+
+; Vars
+NAMEREG s0, r_leds
+NAMEREG s1, r_tmp1
+NAMEREG s2, r_tmp2
+NAMEREG s3, r_tmp3
+NAMEREG s4, r_cntl
+NAMEREG s5, r_cnth
+NAMEREG s6, r_spiiobyte
+NAMEREG s7, r_sderrors
+NAMEREG s8, r_retval  ; routines return value, 0 == success
+NAMEREG s9, r_delay   ; used for delay routine
+   
+  
+  load   r_tmp1,84; INIT SPI rise SS
+  output r_tmp1,PORT_SPICONF
+  load   r_sderrors, 00  
+  load   r_leds,80
+  output r_leds,PORT_LEDS
+
+main_loop:  
+  load   r_delay,DELAY
+  call   delay_ms
+  call   sd_init
+  compare r_retval,00 ; OK  
+  jump   z,detected
+  call   leds_funy
+  JUMP   main_loop
+detected:
+  load   r_tmp1,ff
+  output r_tmp1,PORT_LEDS
+  jump   main_loop
+
+
+;delay time
+delay_ms:
+  LOAD r_tmp1, 00
+  LOAD r_tmp2, 00 
+  LOAD r_tmp3,00
+delay_loop:
+  ADD   r_tmp1,01
+  ADDCY r_tmp2,00
+  ADDCY r_tmp3,00
+  compare r_tmp3,r_delay
+  jump  nz,delay_loop
+  return
+
+; leds routine, system alive
+leds_funy:    
+  rr     r_leds
+  output r_leds,PORT_LEDS
+  return
+  
+; SPI send/recieve byte routine
+spi_sr:
+  output r_spiiobyte, PORT_SPIDATA
+spi_wait_0:
+  input  r_spiiobyte, PORT_SPICONF 
+  test   r_spiiobyte, 40      ; Check for data ready flag
+  jump   z,spi_wait_0
+  input  r_spiiobyte, PORT_SPIDATA
+  return
+
+; SD initialization
+sd_init:
+   ; 80 sclk at 400khz cycles with SS => '1' 
+  load    r_retval,01 ; default return value
+  load    r_tmp1,84 ; up SS and set clock to 400Khz
+   output  r_tmp1,PORT_SPICONF
+  load    r_cntl,0A
+sd_loop1:
+  load    r_spiiobyte,ff
+  call    spi_sr
+  sub     r_cntl,01
+  jump    z,sd_loop1
+  
+  ; SS => '0' and send CMD0
+  load   r_tmp1,04 ; down SS and set clock to 400Khz
+   output r_tmp1,PORT_SPICONF
+  load   r_spiiobyte, 40  ; Send CMD0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 00  ; Send 0x0
+  call   spi_sr  
+  load   r_spiiobyte, 95  ; Send CRC 0x95
+  call   spi_sr
+  ; Wait response sending 0xff  
+  load    r_cntl,10
+sd_loop0:
+  sub     r_cntl,01
+  jump    z,sd_init_to    ; time out
+  load    r_spiiobyte,ff
+  call    spi_sr
+  compare r_spiiobyte,ff
+  jump    z,sd_loop0
+  
+  ; Check response
+  compare r_spiiobyte,01
+  jump   nz,sd_init_error
+  load   r_sderrors,00
+  load   r_retval,00 ; Return ok
+  jump   sd_init_end
+sd_init_to:
+   load   r_sderrors,E0
+   jump sd_init_end
+sd_init_error:
+  load   r_sderrors,E1
+sd_init_end:
+  output r_sderrors,PORT_DISP_MSB
+   output r_spiiobyte,PORT_DISP_LSB
+  return
