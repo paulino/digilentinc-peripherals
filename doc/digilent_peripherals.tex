@@ -15,7 +15,7 @@
 \title{Set of peripherals for Digilent Inc. boards}
 
 \author{P. Ruiz-de-Clavijo V\'azquez}
-\date{October 15, 2012}
+\date{March, 2015}
 
 \maketitle
 
@@ -32,98 +32,140 @@ The modules interface is ready to be easily connected as  peripheral to
 microcontrollers. For this purpose has been added to the project some examples 
 of use with the Picoblaze microcontroller.
 
-The components definitions in package \emph{digilent\_peripherals\_pk} are the following:
+The components definitions in package \emph{digilent\_peripherals\_pk} are the 
+following:
 
 \begin{itemize}
 \item Inputs buttons synchronizer
-\item Switchs controller
-\item Display controller
+\item Switches controller, two versions, 8 bits and 16 bits
+\item Display controller, two versions, 16 bits and 32 bits.
 \item Leds out controller
 \end{itemize}
 
 \section*{Functional description}
 
-All peripherals are very similar and easy to use. Each peripheral contains an internal register to store the input or output data and a signal enable ready to be used as the peripheral selection signal. The figures and the tables details the signal and its behavior.
+All peripherals are very similar and easy to use. Each peripheral contains an 
+internal register to store the input or output data and a signal enable ready to 
+be used as the peripheral selection signal. The figures and the tables details 
+the signal and its behavior.
 
-For more info about how to use it, you can see the examples included with this mini-project.
+The Nexsys5 board has two 4-digit 7-segment displays, for this board a new 
+version of display controller is available in file 
+\texttt{port\_display32\_dig.vhd}.
+
+
+For more info about how to use it, you can see the examples included with this 
+mini-project.
 \begin{center}
 
   \includegraphics{figure-buttons-controller.eps}
   \captionof{figure}{Buttons controller}
   \label{fig:unitbuttons}
+\bigskip 
+  \centering
+  \begin{tabular}{|c|c|c|}
+  \hline 
+  enable & r & Operation \\ 
+  \hline 
+  \hline 
+  0 & - & - \\ 
+  \hline 
+  1 & 1  & internal\_reg[7:0] ${\leftarrow}$ "0000" \& digit\_in[3:0] \\
+  \hline 
+  \end{tabular}
+  \captionof{table}{Buttons controller signals behavior}
+\bigskip 
   
   \includegraphics[]{figure-leds-controller.eps}
   \captionof{figure}{Leds controller}
   \label{fig:unit-leds}
+\bigskip 
+  \centering
+  \begin{tabular}{|c|c|c|}
+  \hline 
+  enable & r & Operation \\ 
+  \hline 
+  \hline 
+  0 & - & - \\ 
+  \hline 
+  1 & 1  & internal\_reg ${\leftarrow}$ port\_in \\
+  \hline 
+  \end{tabular}
+  \captionof{table}{Leds controller signals behavior}  
+  \bigskip 
+  
+  
 
   \includegraphics[]{figure-display-controller.eps}
   \captionof{figure}{Display controller}
   \label{fig:unit-display}
+
+  \bigskip 
+  \centering
+  \begin{tabular}{|c|c|c|c|}
+  \hline 
+  enable & w\_msb & w\_lsb & Operation \\ 
+  \hline 
+  \hline 
+  0 & - & - & - \\ 
+  \hline 
+  1 & 0 & 1 & lsb\_reg ${\leftarrow}$ digit\_in \\ 
+  \hline 
+  1 & 1 & 0 & msb\_reg ${\leftarrow}$ digit\_in \\ 
+  \hline 
+  \end{tabular}
+  \captionof{table}{Display controller signals behavior}  
   
+  \bigskip 
   \includegraphics[]{figure-switches-controller.eps}
   \captionof{figure}{Switches controller}
   \label{fig:unit-switches}
-
-
-\centering
-\begin{tabular}{|c|c|c|}
-\hline 
-enable & r & Operation \\ 
-\hline 
-\hline 
-0 & - & - \\ 
-\hline 
-1 & 1  & internal\_reg[7:0] ${\leftarrow}$ "0000" \& digit\_in[3:0] \\
-\hline 
-\end{tabular}
-\captionof{table}{Buttons controller signals behavior}
-
-\centering
-\begin{tabular}{|c|c|c|}
-\hline 
-enable & r & Operation \\ 
-\hline 
-\hline 
-0 & - & - \\ 
-\hline 
-1 & 1  & internal\_reg ${\leftarrow}$ port\_in \\
-\hline 
-\end{tabular}
-\caption{Leds controller signals behavior}
-
-\centering
-\begin{tabular}{|c|c|c|c|}
-\hline 
-enable & w\_msb & w\_lsb & Operation \\ 
-\hline 
-\hline 
-0 & - & - & - \\ 
-\hline 
-1 & 0 & 1 & lsb\_reg ${\leftarrow}$ digit\_in \\ 
-\hline 
-1 & 1 & 0 & msb\_reg ${\leftarrow}$ digit\_in \\ 
-\hline 
-\end{tabular}
-\caption{Display controller signals behavior}
-
-
-
-
-\centering
-\begin{tabular}{|c|c|c|}
-\hline 
-enable & r & Operation \\ 
-\hline 
-\hline 
-0 & - & - \\ 
-\hline 
-1 & 1  & internal\_reg ${\leftarrow}$ switches\_in \\
-\hline 
-\end{tabular}
-\caption{Switches controller signals behavior}
+\bigskip 
+  \centering
+  \begin{tabular}{|c|c|c|}
+  \hline 
+  enable & r & Operation \\ 
+  \hline 
+  \hline 
+  0 & - & - \\ 
+  \hline 
+  1 & 1  & internal\_reg ${\leftarrow}$ switches\_in \\
+  \hline 
+  \end{tabular}
+  \captionof{table}{Switches controller signals behavior}
 
 
 \end{center}
+
+The 32 bits display controller has 8+1 bit input, the display point is loaded
+using a extra wire. The controller acts like a 4x9 bits memory and the signal 
+\texttt{byte\_sel} is used to select the word where the data is written.
+
+
+\begin{center}
+
+  \includegraphics[]{figure-display32-controller.eps}
+  \captionof{figure}{32 bits display controller}
+  \label{fig:unit-display32}
+\bigskip 
+  \centering
+  \begin{tabular}{|c|c|c|c|}
+  \hline 
+  enable & w &  Operation \\ 
+  \hline 
+  \hline 
+  0 & - & - \\ 
+  \hline 
+  1 & 1 &  digit(byte\_sel)  ${\leftarrow}$ digit\_in \\ 
+    &   &  dp(byte\_sel) ${\leftarrow}$ dp\_in \\
+  \hline 
+  \end{tabular}
+  \captionof{table}{32 bits display controller signals behavior}
+  
+    
+\end{center}
+
+ 
 
 \section*{About Picoblaze peripheral examples}
 

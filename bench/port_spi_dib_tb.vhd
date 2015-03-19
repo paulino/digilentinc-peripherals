@@ -19,7 +19,7 @@
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
-use work.b2_peripherals_pk.all;
+use work.digilent_peripherals_pk.all;
  
 ENTITY port_spi_basys2_tb IS
 END port_spi_basys2_tb;

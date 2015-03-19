@@ -17,26 +17,41 @@
 --
 --*------------------------------- End auto header, don't touch this line --*--
 
+-- Buttons synchronizer for nesys4 board
+-- Buttons out:
+--                  +----------------------------------------------+
+--                  | 7 | 6 | 5 |  4   |   3  |   2  |   1  |   0  |
+--                  +----------------------------------------------+
+--  port_out[7:0]=  | 0 | 0 | 0 | BTNU | BTNR | BTND | BTNL | BTNC |
+--                  +----------------------------------------------+
+
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
-entity port_switches_dig is port (
-  r            : in  std_logic;
-  clk          : in  std_logic;
-  enable       : in  std_logic;
-  port_out     : out std_logic_vector (7 downto 0);
-  switches_in  : in  std_logic_vector (7 downto 0));
-end port_switches_dig;
+entity port_buttons_nexsys4 is port ( 
+  r          : in  std_logic;
+  clk        : in  std_logic;
+  enable     : in  std_logic;
+  btnu_in    : in  std_logic;  
+  btnr_in    : in  std_logic;
+  btnl_in    : in  std_logic;
+  btnd_in    : in  std_logic;
+  btnc_in    : in  std_logic;
+  port_out   : out std_logic_vector (7 downto 0));
+end port_buttons_nexsys4;
 
-architecture behavioral of port_switches_dig is
-  begin
+architecture behavioral of port_buttons_nexsys4 is
+
+begin
+  port_out(7 downto 5) <= "000";
+
   read_proc: process(clk,enable,r)
   begin
     if falling_edge(clk) and enable='1' and r='1' then
-      port_out <= switches_in;
+      port_out(4 downto 0) <= btnu_in & btnl_in & btnd_in & 
+        btnr_in & btnc_in;
     end if;
   end process;
-
 end behavioral;
 

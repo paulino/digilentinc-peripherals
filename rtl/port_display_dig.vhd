@@ -45,7 +45,7 @@ architecture Behavioral of port_display_dig is
 
 begin
   -- Writer process
-  write_proc : process (clk)
+  write_proc : process (clk,enable)
   begin 
    if falling_edge(clk) and enable='1' then 
     if w_msb='1' then

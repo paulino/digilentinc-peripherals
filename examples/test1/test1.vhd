@@ -29,7 +29,7 @@ library IEEE;
 use IEEE.std_logic_1164.ALL;
 use work.digilent_peripherals_pk.all;
 
-entity demo1_basys2 is
+entity demo1_digilent is
  port(
     clk      : in   std_logic;
     leds_out : out  std_logic_vector (7 downto 0);
@@ -40,9 +40,9 @@ entity demo1_basys2 is
     btn_in   : in   std_logic_vector (3 downto 0)
     );
 
-end demo1_basys2;
+end demo1_digilent;
 
-architecture behavioral of demo1_basys2 is
+architecture behavioral of demo1_digilent is
 
   -- Internal signals
   signal port_display_enable : std_logic;

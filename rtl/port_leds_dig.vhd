@@ -33,7 +33,7 @@ architecture behavioral of port_leds_dig is
   signal mem : std_logic_vector (7 downto 0);
   begin
     leds_out <= mem;
-    write_proc: process (clk) 
+    write_proc: process (clk,enable,w) 
     begin
       if falling_edge(clk) and w='1' and enable='1' then
         mem <= port_in;
